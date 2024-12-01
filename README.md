@@ -1,6 +1,8 @@
 # Pedalboard GUI
 
-This is a Gradio frontend GUI for the [Spotify Pedalboard](https://github.com/spotify/pedalboard) library. This is intended for demo purposes.
+This is a Gradio frontend GUI for the [Spotify Pedalboard](https://github.com/spotify/pedalboard) audio processing library. Quickly upload/record audio and apply Pedalboard effects such as reverb, delay, distortion, filters, etc.
+
+![gui_screenshot](https://github.com/user-attachments/assets/ad862a48-1112-446b-918e-9523acc50005)
 
 ## Usage
 
