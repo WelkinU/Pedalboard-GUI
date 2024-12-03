@@ -275,7 +275,7 @@ with gr.Blocks() as demo:
                 low_shelf_filter_q = gr.Slider(label = 'Q', value = 0.7071, minimum = 0, maximum = 1)
 
             with gr.Accordion(label = 'Peak Filter', open = False):
-                gr.Markdown('Notich filter - frequencies around the cutoff frequency will be boosted/cut by the provided gain')
+                gr.Markdown('Notch filter - frequencies around the cutoff frequency will be boosted/cut by the provided gain')
                 peak_filter_enabled = gr.Checkbox(label = 'Peak Filter Enabled')
                 peak_filter_cutoff_hz = gr.Slider(label = 'Cutoff Frequency Hz', value = 440, minimum = 0, maximum = 5000)
                 peak_filter_gain_db = gr.Slider(label = 'Gain db', value = 0, minimum = -30, maximum = 30)
