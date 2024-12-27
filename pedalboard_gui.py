@@ -111,10 +111,16 @@ def process_audio(audio_in, gain,
 
         vals = []
         if padding_start_sec > 0:
-            vals.append(np.zeros((num_channels, int(sample_rate * padding_start_sec))))
+            if num_channels == 2:
+                vals.append(np.zeros((num_channels, int(sample_rate * padding_start_sec))))
+            else:
+                vals.append(np.zeros((int(sample_rate * padding_start_sec),) ))
         vals.append(audio_data)
         if padding_end_sec > 0:
-            vals.append(np.zeros((num_channels, int(sample_rate * padding_end_sec))))
+            if num_channels == 2:
+                vals.append(np.zeros((num_channels, int(sample_rate * padding_end_sec))))
+            else:
+                vals.append(np.zeros((int(sample_rate * padding_end_sec),)))
 
         audio_data = np.hstack(vals)
 
@@ -235,6 +241,7 @@ with gr.Blocks() as demo:
                     choices = ['None', 'ZeroOrderHold', 'Linear', 'CatmullRom', 'Lagrange', 'WindowedSinc', 
                         'WindowedSinc256', 'WindowedSinc128', 'WindowedSinc64', 'WindowedSinc32', 'WindowedSinc16',
                          'WindowedSinc8'],
+                        'WindowedSinc8'],
                     value = 'None')
                 resample_target_sample_rate = gr.Slider(label = 'Target Sample Rate Hz', value = 8000, minimum = 0, maximum = 44100)
 
