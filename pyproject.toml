@@ -3,9 +3,9 @@ name = "pedalboard-gui"
 version = "0.1.0"
 description = "Gradio frontend GUI for Spotify Pedalboard"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "gradio",
+    "gradio>=6",
     "numpy",
     "pedalboard",
 ]
