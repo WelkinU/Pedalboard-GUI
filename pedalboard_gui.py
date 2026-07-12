@@ -345,7 +345,7 @@ with gr.Blocks() as demo:
         submit_button = gr.Button('Submit')
 
     with gr.Row():
-        audio_out = gr.Audio(label = 'Output Audio', interactive = False, show_download_button = True, loop = True)
+        audio_out = gr.Audio(label = 'Output Audio', interactive = False, buttons = ['download'], loop = True)
 
     submit_button.click(fn = process_audio, 
         inputs = [audio_in,
