@@ -13,7 +13,8 @@ This is a Gradio frontend GUI for the [Spotify Pedalboard](https://github.com/sp
 
 ## Environment
 
-All you need is Python >= 3.8 with pedalboard and gradio installed `pip install -U pedalboard gradio`
+pip: `pip install -r requirements.txt`
+uv: `uv sync`
 
 ## Features
 
