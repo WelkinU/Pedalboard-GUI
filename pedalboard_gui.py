@@ -1,7 +1,21 @@
+import asyncio
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    # uvicorn forces ProactorEventLoop on Windows, which logs spurious ConnectionResetError
+    # tracebacks when clients disconnect (e.g. drag-drop uploads). Use SelectorEventLoop instead.
+    import uvicorn.loops.asyncio as _uvicorn_asyncio_loop
+
+    def _selector_loop_factory(use_subprocess: bool = False):
+        return asyncio.SelectorEventLoop
+
+    _uvicorn_asyncio_loop.asyncio_loop_factory = _selector_loop_factory
+
 import gradio as gr
 import numpy as np
-from pedalboard import (Pedalboard, Chorus, Reverb, Gain, Phaser, Compressor, HighpassFilter, LowpassFilter,
-    Distortion, Delay, Bitcrush, MP3Compressor, PitchShift, Limiter, Clipping, time_stretch, 
+import tempfile
+from pedalboard import (Pedalboard, Chorus, Reverb, Gain, Phaser, Compressor, HighpassFilter, LowpassFilter,    Distortion, Delay, Bitcrush, MP3Compressor, PitchShift, Limiter, Clipping, time_stretch, 
     GSMFullRateCompressor, Resample, LadderFilter, LowShelfFilter, HighShelfFilter, PeakFilter, NoiseGate)
 from pedalboard.io import AudioFile
 
@@ -134,21 +148,8 @@ def process_audio(audio_in, gain,
         # a few more args for this function per: https://spotify.github.io/pedalboard/reference/pedalboard.html#pedalboard.time_stretch
         out_audio = time_stretch(out_audio, sample_rate, time_strech_factor, pitchshift_semitones)
 
-    out_audio = (out_audio.T * 32768.0).astype(np.int16) #convert back from float32 to int16 for Gradio frontend
+    out_audio = (out_audio.T * 32768.0).astype(np.int16)
     return (sample_rate, out_audio)
-    
-    '''#do this for very large audio files, where memory is a constraint
-    with AudioFile(audio_in) as f:
-        sample_rate = f.samplerate
-        num_channels = f.num_channels
-        data = f.read(f.frames)
-        out_audio = board(data, sample_rate)
-
-    with AudioFile(AUDIO_OUT_PATH, 'w', sample_rate, num_channels) as out:
-        out.write(out_audio)
-
-    return None
-    '''
 
 def remove_silence(audio_data, sample_rate, silence_shrink_ratio, silence_min_silence_sec, silence_max_silence_sec, silence_time_thresh = 0.25):
     buffer = []
@@ -175,6 +176,45 @@ def remove_silence(audio_data, sample_rate, silence_shrink_ratio, silence_min_si
         return audio_data[:, include] #might error on mono-channel audio data
     else:
         return audio_data[include]
+
+def audio_to_channels_first(audio):
+    if audio.ndim == 1:
+        channels_first = audio[np.newaxis, :]
+        num_channels = 1
+    else:
+        channels_first = audio.T
+        num_channels = channels_first.shape[0]
+    if channels_first.dtype == np.int16:
+        channels_first = channels_first.astype(np.float32) / 32768.0
+    else:
+        channels_first = channels_first.astype(np.float32)
+    return channels_first, num_channels
+
+def export_audio(audio_tuple, download_format):
+    if audio_tuple is None:
+        raise gr.Error("Process audio first before downloading.")
+
+    sample_rate, audio = audio_tuple
+    channels_first, num_channels = audio_to_channels_first(audio)
+
+    if download_format == "WAV (lossless)":
+        encoded = AudioFile.encode(channels_first, sample_rate, "wav", num_channels=num_channels)
+        suffix = ".wav"
+    else:
+        kbps = int(download_format.removeprefix("MP3 ").removesuffix(" kbps"))
+        encoded = AudioFile.encode(
+            channels_first,
+            sample_rate,
+            "mp3",
+            num_channels=num_channels,
+            quality=kbps,
+        )
+        suffix = ".mp3"
+
+    out = tempfile.NamedTemporaryFile(delete=False, suffix=suffix, prefix="pedalboard_gui_")
+    out.write(encoded)
+    out.close()
+    return out.name
 
 with gr.Blocks() as demo:
 
@@ -345,7 +385,21 @@ with gr.Blocks() as demo:
         submit_button = gr.Button('Submit')
 
     with gr.Row():
-        audio_out = gr.Audio(label = 'Output Audio', interactive = False, buttons = ['download'], loop = True)
+        audio_out = gr.Audio(label = 'Output Audio', interactive = False, buttons = [], loop = True)
+
+    with gr.Row():
+        download_format = gr.Dropdown(
+            label = 'Download format',
+            choices = [
+                'WAV (lossless)',
+                'MP3 320 kbps',
+                'MP3 256 kbps',
+                'MP3 192 kbps',
+                'MP3 128 kbps',
+            ],
+            value = 'WAV (lossless)',
+        )
+        audio_download = gr.DownloadButton('Download', variant = 'secondary')
 
     submit_button.click(fn = process_audio, 
         inputs = [audio_in,
@@ -379,4 +433,7 @@ with gr.Blocks() as demo:
             ],
         outputs = [audio_out])
 
-demo.launch(inbrowser = True, server_port = 7681)
+    audio_download.click(export_audio, inputs = [audio_out, download_format], outputs = audio_download)
+
+if __name__ == '__main__':
+    demo.launch(inbrowser = True, server_port = 7681)
