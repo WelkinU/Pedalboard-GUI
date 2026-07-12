@@ -7,6 +7,7 @@ from pedalboard.io import AudioFile
 
 def process_audio(audio_in, gain,
     noise_gate_enabled, noise_gate_threshold_db, noise_gate_ratio, noise_gate_attack_ms, noise_gate_release_ms,
+    silence_removal_enabled, silence_shrink_ratio, silence_min_silence_sec, silence_max_silence_sec,
     reverb_enabled, reverb_room_size, reverb_damping, reverb_wet_level, reverb_dry_level, reverb_width, reverb_freeze_mode,
     delay_enabled, delay_sec, delay_feedback, delay_mix,
     chorus_enabled, chorus_rate_hz, chorus_depth, chorus_center_delay, chorus_feedback, chorus_mix,
@@ -124,6 +125,9 @@ def process_audio(audio_in, gain,
 
         audio_data = np.hstack(vals)
 
+    if silence_removal_enabled:
+        audio_data = remove_silence(audio_data, sample_rate, silence_shrink_ratio, silence_min_silence_sec, silence_max_silence_sec)
+
     out_audio = board(audio_data, sample_rate)
 
     if time_strech_factor != 1:
@@ -145,6 +149,32 @@ def process_audio(audio_in, gain,
 
     return None
     '''
+
+def remove_silence(audio_data, sample_rate, silence_shrink_ratio, silence_min_silence_sec, silence_max_silence_sec, silence_time_thresh = 0.25):
+    buffer = []
+    is_audio = np.mean(audio_data, axis = 0) > 1E-5 #1e-6 is silence/non-silence threshold
+    breakpoints = np.concatenate([[0], np.where(np.diff(is_audio))[0] + 1]) #not debounced
+    debounced_index = np.where(np.concatenate([np.diff(breakpoints) > 10000, [False]]))[0]
+
+    include = np.full(len(is_audio), True)
+
+    for i in debounced_index:
+        silence_samples = silence_shrink_ratio * (breakpoints[i + 1] - breakpoints[i])
+
+        if silence_samples > silence_time_thresh * sample_rate:
+            if silence_samples < silence_min_silence_sec * sample_rate:
+                silence_samples = silence_min_silence_sec * sample_rate
+            if silence_samples > silence_max_silence_sec * sample_rate:
+                silence_samples = silence_max_silence_sec * sample_rate
+
+        silence_samples = int(silence_samples)
+
+        include[breakpoints[i] + silence_samples : breakpoints[i+1]] = False
+
+    if audio_data.shape[0] == 2: #mono channel audio
+        return audio_data[:, include] #might error on mono-channel audio data
+    else:
+        return audio_data[include]
 
 with gr.Blocks() as demo:
 
@@ -168,6 +198,14 @@ with gr.Blocks() as demo:
                 noise_gate_ratio = gr.Slider(label = 'Ratio', value = 0, minimum = 10, maximum = 20)
                 noise_gate_attack_ms = gr.Slider(label = 'Attack ms', value = 1, minimum = 0, maximum = 10)
                 noise_gate_release_ms = gr.Slider(label = 'Release ms', value = 100, minimum = 0, maximum = 300)
+
+            with gr.Accordion(label = 'Silence Removal', open = False):
+                gr.Markdown('A simple way to reduce amount of silence in the audio')
+                silence_removal_enabled = gr.Checkbox(label = 'Silence Removal Enabled')
+                silence_shrink_ratio = gr.Slider(label = 'Silence Reduction Fraction (ex. 0.6 cuts a 1 sec silence to 0.6 sec)',
+                value = 1, minimum = 0, maximum = 2)
+                silence_min_silence_sec = gr.Slider(label = 'Min silence time sec', value = 0.5, minimum = 0, maximum = 3)
+                silence_max_silence_sec = gr.Slider(label = 'Max silence time sec', value = 1, minimum = 0, maximum = 3)
 
             with gr.Accordion(label = 'Reverb', open = False):
                 reverb_enabled = gr.Checkbox(label = 'Reverb Enabled')
@@ -240,7 +278,6 @@ with gr.Blocks() as demo:
                 resample_method = gr.Dropdown(label = 'Resample Method',
                     choices = ['None', 'ZeroOrderHold', 'Linear', 'CatmullRom', 'Lagrange', 'WindowedSinc', 
                         'WindowedSinc256', 'WindowedSinc128', 'WindowedSinc64', 'WindowedSinc32', 'WindowedSinc16',
-                         'WindowedSinc8'],
                         'WindowedSinc8'],
                     value = 'None')
                 resample_target_sample_rate = gr.Slider(label = 'Target Sample Rate Hz', value = 8000, minimum = 0, maximum = 44100)
@@ -314,6 +351,7 @@ with gr.Blocks() as demo:
         inputs = [audio_in,
             gain,
             noise_gate_enabled, noise_gate_threshold_db, noise_gate_ratio, noise_gate_attack_ms, noise_gate_release_ms,
+            silence_removal_enabled, silence_shrink_ratio, silence_min_silence_sec, silence_max_silence_sec,
             reverb_enabled, reverb_room_size, reverb_damping, reverb_wet_level, reverb_dry_level, reverb_width, reverb_freeze_mode,
             delay_enabled, delay_sec, delay_feedback, delay_mix,
             chorus_enabled, chorus_rate_hz, chorus_depth, chorus_center_delay, chorus_feedback, chorus_mix,
@@ -341,4 +379,4 @@ with gr.Blocks() as demo:
             ],
         outputs = [audio_out])
 
-demo.launch(inbrowser = True, server_port = 7680)
+demo.launch(inbrowser = True, server_port = 7681)
