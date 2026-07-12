@@ -195,7 +195,7 @@ with gr.Blocks() as demo:
                 gr.Markdown('A simple noise gate with standard threshold, ratio, attack time and release time controls. Can be used as an expander if the ratio is low')
                 noise_gate_enabled = gr.Checkbox(label = 'Noise Gate Enabled')
                 noise_gate_threshold_db = gr.Slider(label = 'Threshold db', value = -100, minimum = -200, maximum = 0)
-                noise_gate_ratio = gr.Slider(label = 'Ratio', value = 0, minimum = 10, maximum = 20)
+                noise_gate_ratio = gr.Slider(label = 'Ratio', value = 10, minimum = 1, maximum = 20)
                 noise_gate_attack_ms = gr.Slider(label = 'Attack ms', value = 1, minimum = 0, maximum = 10)
                 noise_gate_release_ms = gr.Slider(label = 'Release ms', value = 100, minimum = 0, maximum = 300)
 
